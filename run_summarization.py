@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 # Modifications Copyright 2017 Abigail See
 #

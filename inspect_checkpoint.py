@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Simple script that checks if a checkpoint is corrupted with any inf/NaN values. Run like this:
   python inspect_checkpoint.py model.12345
