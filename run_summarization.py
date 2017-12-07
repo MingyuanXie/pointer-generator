@@ -15,7 +15,7 @@
 # ==============================================================================
 
 """This is the top-level file to train, evaluate or test your summarization model"""
-
+# 训练，评估以及测试摘要模型的入口文件
 import sys
 import time
 import os
@@ -32,18 +32,26 @@ from tensorflow.python import debug as tf_debug
 FLAGS = tf.app.flags.FLAGS
 
 # Where to find data
+# 读取数据目录
 tf.app.flags.DEFINE_string('data_path', '', 'Path expression to tf.Example datafiles. Can include wildcards to access multiple datafiles.')
 tf.app.flags.DEFINE_string('vocab_path', '', 'Path expression to text vocabulary file.')
 
 # Important settings
+# 选定某一种模式：训练/评估/解码
+# python run_summarization.py --mode=train --data_path=/path/to/chunked/train_* --vocab_path=/path/to/vocab --log_root=/path/to/a/log/directory --exp_name=myexperiment
+# python run_summarization.py --mode=eval --data_path=/path/to/chunked/val_* --vocab_path=/path/to/vocab --log_root=/path/to/a/log/directory --exp_name=myexperiment
+# python run_summarization.py --mode=decode --data_path=/path/to/chunked/val_* --vocab_path=/path/to/vocab --log_root=/path/to/a/log/directory --exp_name=myexperiment
 tf.app.flags.DEFINE_string('mode', 'train', 'must be one of train/eval/decode')
+# 仅针对deocde解码模式，如果是True 则会根据当前的检查点建立模型，生成数据集对应的摘要，并计算ROUGE分数
 tf.app.flags.DEFINE_boolean('single_pass', False, 'For decode mode only. If True, run eval on the full dataset using a fixed checkpoint, i.e. take the current checkpoint, and use it to produce one summary for each example in the dataset, write the summaries to file and then get ROUGE scores for the whole dataset. If False (default), run concurrent decoding, i.e. repeatedly load latest checkpoint, use it to produce summaries for randomly-chosen examples and log the results to screen, indefinitely.')
 
 # Where to save output
+# 输出文件的位置，包括根目录以及实验目录
 tf.app.flags.DEFINE_string('log_root', '', 'Root directory for all logging.')
 tf.app.flags.DEFINE_string('exp_name', '', 'Name for experiment. Logs will be saved in a directory with this name, under log_root.')
 
 # Hyperparameters
+# 参数，需要调节max_enc_steps，max_dec_steps 
 tf.app.flags.DEFINE_integer('hidden_dim', 256, 'dimension of RNN hidden states')
 tf.app.flags.DEFINE_integer('emb_dim', 128, 'dimension of word embeddings')
 tf.app.flags.DEFINE_integer('batch_size', 16, 'minibatch size')
@@ -59,9 +67,11 @@ tf.app.flags.DEFINE_float('trunc_norm_init_std', 1e-4, 'std of trunc norm init, 
 tf.app.flags.DEFINE_float('max_grad_norm', 2.0, 'for gradient clipping')
 
 # Pointer-generator or baseline model
+# 是否打开pointer开关
 tf.app.flags.DEFINE_boolean('pointer_gen', True, 'If True, use pointer-generator model. If False, use baseline model.')
 
 # Coverage hyperparameters
+# coverage机制，应用于机器翻译之下（有待研究）
 tf.app.flags.DEFINE_boolean('coverage', False, 'Use coverage mechanism. Note, the experiments reported in the ACL paper train WITHOUT coverage until converged, and then train for a short phase WITH coverage afterwards. i.e. to reproduce the results in the ACL paper, turn this off for most of training then turn on for a short phase at the end.')
 tf.app.flags.DEFINE_float('cov_loss_wt', 1.0, 'Weight of coverage loss (lambda in the paper). If zero, then no incentive to minimize coverage loss.')
 
@@ -73,11 +83,25 @@ tf.app.flags.DEFINE_boolean('restore_best_model', False, 'Restore the best model
 tf.app.flags.DEFINE_boolean('debug', False, "Run in tensorflow's debug mode (watches for NaN/inf values)")
 
 
+"""
+  通过指数衰减（exponential decay），计算运行时的平均损失
+  以此来实现early stop, 使得损失曲线更加平滑
 
+  参数：
+    loss：当前eval step上的损失值
+    running_avg_loss: 运行到现在的平均损失
+    summary_writer: 用于tensorboard
+    step：迭代step 
+    decay：指数衰减rate，在0和1之间，值越大就越平滑
+
+  returns:
+     running_avg_loss: 新的运行时的平均损失
+
+"""
 def calc_running_avg_loss(loss, running_avg_loss, summary_writer, step, decay=0.99):
   """Calculate the running average loss via exponential decay.
   This is used to implement early stopping w.r.t. a more smooth loss curve than the raw loss curve.
-
+  
   Args:
     loss: loss on the most recent eval step
     running_avg_loss: running_avg_loss so far
@@ -92,6 +116,7 @@ def calc_running_avg_loss(loss, running_avg_loss, summary_writer, step, decay=0.
     running_avg_loss = loss
   else:
     running_avg_loss = running_avg_loss * decay + (1 - decay) * loss
+  # （为什么要比上12）
   running_avg_loss = min(running_avg_loss, 12)  # clip
   loss_sum = tf.Summary()
   tag_name = 'running_avg_loss/decay=%f' % (decay)
@@ -100,7 +125,7 @@ def calc_running_avg_loss(loss, running_avg_loss, summary_writer, step, decay=0.
   tf.logging.info('running_avg_loss: %f', running_avg_loss)
   return running_avg_loss
 
-
+# 从eval目录中获取最佳模型，
 def restore_best_model():
   """Load bestmodel file from eval directory, add variables for adagrad, and save to train directory"""
   tf.logging.info("Restoring bestmodel for training...")
@@ -140,7 +165,7 @@ def convert_to_coverage_model():
   print "restoring non-coverage variables..."
   curr_ckpt = util.load_ckpt(saver, sess)
   print "restored."
-
+ 
   # save this model and quit
   new_fname = curr_ckpt + '_cov_init'
   print "saving model to %s..." % (new_fname)

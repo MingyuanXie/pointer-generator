@@ -23,10 +23,14 @@ FLAGS = tf.app.flags.FLAGS
 
 def get_config():
   """Returns config for tf.session"""
+  # 返回tf.session的配置 tf.ConfigProto一般用在创建session的时候。用来对session进行参数配置
+  # allow_soft_placement=True ： 如果你指定的设备不存在，允许TF自动分配设备
+  # gpu_options.allow_growth=True： 分配器将不会指定所有的GPU内存，而是根据需求增长
   config = tf.ConfigProto(allow_soft_placement=True)
   config.gpu_options.allow_growth=True
   return config
 
+# 从ckpt目录加载检查点，转存成saver和session
 def load_ckpt(saver, sess, ckpt_dir="train"):
   """Load checkpoint from the ckpt_dir (if unspecified, this is train dir) and restore it to saver and sess, waiting 10 secs in the case of failure. Also returns checkpoint name."""
   while True:

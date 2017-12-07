@@ -22,8 +22,8 @@ from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import nn_ops
 from tensorflow.python.ops import math_ops
 
-# Note: this function is based on tf.contrib.legacy_seq2seq_attention_decoder, which is now outdated.
-# In the future, it would make more sense to write variants on the attention mechanism using the new seq2seq library for tensorflow 1.0: https://www.tensorflow.org/api_guides/python/contrib.seq2seq#Attention
+# 注意：这个方法基于过时的tf.contrib.legacy_seq2seq_attention_decoder
+# 后续推荐使用新的seq2seq类库：https://www.tensorflow.org/api_guides/python/contrib.seq2seq#Attention完成注意力机制的变形
 def attention_decoder(decoder_inputs, initial_state, encoder_states, enc_padding_mask, cell, initial_state_attention=False, pointer_gen=True, use_coverage=False, prev_coverage=None):
   """
   Args:
