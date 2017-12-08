@@ -6,7 +6,7 @@ import struct
 import subprocess
 import collections
 import jieba
-from tensorflow.core.example import example_pb21
+from tensorflow.core.example import example_pb2
 
 # 我们使用如下符号在.bin数据文件中对句子进行分割
 SENTENCE_START = '<s>'
