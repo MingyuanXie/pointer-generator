@@ -1,4 +1,4 @@
-# Text Classification with CNN and RNN
+# Text Summarization with seq2seq
 
 使用seq2seq_attention以及pointer生成中文文本自动摘要
 
@@ -19,7 +19,7 @@
 * 层次化编码
 
 
-以下为原项目的 README
+## 以下为原项目的 README
 
 This repository contains code for the ACL 2017 paper *[Get To The Point: Summarization with Pointer-Generator Networks](https://arxiv.org/abs/1704.04368)*. For an intuitive overview of the paper, read the [blog post](http://www.abigailsee.com/2017/04/16/taming-rnns-for-better-summarization.html).
 
