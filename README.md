@@ -1,3 +1,27 @@
+# Text Classification with CNN and RNN
+
+使用seq2seq_attention以及pointer生成中文文本自动摘要
+
+这个项目是基于以下项目改写：
+ **[abisee/pointer-generator](https://github.com/abisee/pointer-generator)**
+
+
+目前主要的改动：
+* 增加了对于中文数据集LCSTS的支持
+* 增加了pyrouge对于中文的支持
+
+## 特性：
+* 中文数据集
+* 基于 jieba 的中文处理工具
+
+## 待补充的特性：
+* 基于文本类别特征相关的文本自动摘要
+.DS_Store
+* 层次化编码
+
+
+以下为原项目的 README
+
 This repository contains code for the ACL 2017 paper *[Get To The Point: Summarization with Pointer-Generator Networks](https://arxiv.org/abs/1704.04368)*. For an intuitive overview of the paper, read the [blog post](http://www.abigailsee.com/2017/04/16/taming-rnns-for-better-summarization.html).
 
 ## Looking for test set output?

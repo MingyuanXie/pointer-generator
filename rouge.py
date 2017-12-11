@@ -25,8 +25,8 @@ def word2id(wd2idx, in_path, out_path):
 			writer.write(result)
 
 if __name__ == '__main__':
-	if len(sys.argv) != 2: # prints a message if you've entered flags incorrectly#
-		raise Exception("please enter two argv, one ref_dir, one dec_dir")
+	# if len(sys.argv) != 2: # prints a message if you've entered flags incorrectly#
+	# 	raise Exception("please enter two argv, one ref_dir, one dec_dir")
 
 	vocab_dict = {}
 	ref_dir = sys.argv[1]

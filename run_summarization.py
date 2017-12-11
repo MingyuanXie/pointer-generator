@@ -79,6 +79,9 @@ tf.app.flags.DEFINE_boolean('restore_best_model', False, 'Restore the best model
 # Debugging. See https://www.tensorflow.org/programmers_guide/debugger
 tf.app.flags.DEFINE_boolean('debug', False, "Run in tensorflow's debug mode (watches for NaN/inf values)")
 
+# 是否使用文本类别特征
+tf.app.flags.DEFINE_boolean('topic ',False,"If ture combine the topic info while decoding");
+
 
 """
   通过指数衰减（exponential decay），计算运行时的平均损失
