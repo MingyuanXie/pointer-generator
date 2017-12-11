@@ -35,6 +35,7 @@ class SummarizationModel(object):
 
   def _add_placeholders(self):
     """Add placeholders to the graph. These are entry points for any input data."""
+    """在模型中插入占位符"""
     hps = self._hps
 
     # encoder part
@@ -53,7 +54,7 @@ class SummarizationModel(object):
     if hps.mode=="decode" and hps.coverage:
       self.prev_coverage = tf.placeholder(tf.float32, [hps.batch_size, None], name='prev_coverage')
 
-
+  # 使用feed_dict填充上述的占位符
   def _make_feed_dict(self, batch, just_enc=False):
     """Make a feed dictionary mapping parts of the batch to the appropriate placeholders.
 
@@ -74,9 +75,10 @@ class SummarizationModel(object):
       feed_dict[self._dec_padding_mask] = batch.dec_padding_mask
     return feed_dict
 
+  # 在图中加入一个单层的双向的LSTM编码层  
   def _add_encoder(self, encoder_inputs, seq_len):
     """Add a single-layer bidirectional LSTM encoder to the graph.
-
+      
     Args:
       encoder_inputs: A tensor of shape [batch_size, <=max_enc_steps, emb_size].
       seq_len: Lengths of encoder_inputs (before padding). A tensor of shape [batch_size].
@@ -153,6 +155,8 @@ class SummarizationModel(object):
 
     Returns:
       final_dists: The final distributions. List length max_dec_steps of (batch_size, extended_vsize) arrays.
+    
+    针对生成模式，计算最终的概率分布
     """
     with tf.variable_scope('final_distribution'):
       # Multiply vocab dists by p_gen and attention dists by (1-p_gen)
@@ -199,33 +203,39 @@ class SummarizationModel(object):
 
   def _add_seq2seq(self):
     """Add the whole sequence-to-sequence model to the graph."""
+    """在图中添加完整的seq2seq模型"""
+    # 获取参数和词表大小
     hps = self._hps
-    vsize = self._vocab.size() # size of the vocabulary
+    vsize = self._vocab.size()
 
     with tf.variable_scope('seq2seq'):
-      # Some initializers
+      # 部分初始化
       self.rand_unif_init = tf.random_uniform_initializer(-hps.rand_unif_init_mag, hps.rand_unif_init_mag, seed=123)
       self.trunc_norm_init = tf.truncated_normal_initializer(stddev=hps.trunc_norm_init_std)
 
       # Add embedding matrix (shared by the encoder and decoder inputs)
+      # 添加embedding矩阵（encoder和decoder输入共享）
       with tf.variable_scope('embedding'):
         embedding = tf.get_variable('embedding', [vsize, hps.emb_dim], dtype=tf.float32, initializer=self.trunc_norm_init)
         if hps.mode=="train": self._add_emb_vis(embedding) # add to tensorboard
         emb_enc_inputs = tf.nn.embedding_lookup(embedding, self._enc_batch) # tensor with shape (batch_size, max_enc_steps, emb_size)
         emb_dec_inputs = [tf.nn.embedding_lookup(embedding, x) for x in tf.unstack(self._dec_batch, axis=1)] # list length max_dec_steps containing shape (batch_size, emb_size)
 
-      # Add the encoder.
+      # 添加编码层
       enc_outputs, fw_st, bw_st = self._add_encoder(emb_enc_inputs, self._enc_lens)
       self._enc_states = enc_outputs
 
       # Our encoder is bidirectional and our decoder is unidirectional so we need to reduce the final encoder hidden state to the right size to be the initial decoder hidden state
+      # 我们的encoder层是双向的lstm，但编码层是单向的，所以这里加上这一层，使得编码器最终的隐藏层状态能和编码器初始的隐藏层状态匹配
       self._dec_in_state = self._reduce_states(fw_st, bw_st)
 
       # Add the decoder.
+      # 添加编码层
       with tf.variable_scope('decoder'):
         decoder_outputs, self._dec_out_state, self.attn_dists, self.p_gens, self.coverage = self._add_decoder(emb_dec_inputs)
 
       # Add the output projection to obtain the vocabulary distribution
+      # 增加输出映射来获取词表分布
       with tf.variable_scope('output_projection'):
         w = tf.get_variable('w', [hps.hidden_dim, vsize], dtype=tf.float32, initializer=self.trunc_norm_init)
         w_t = tf.transpose(w)
@@ -234,21 +244,23 @@ class SummarizationModel(object):
         for i,output in enumerate(decoder_outputs):
           if i > 0:
             tf.get_variable_scope().reuse_variables()
+          # 做一个线性变化，相当于wx+v
           vocab_scores.append(tf.nn.xw_plus_b(output, w, v)) # apply the linear layer
 
         vocab_dists = [tf.nn.softmax(s) for s in vocab_scores] # The vocabulary distributions. List length max_dec_steps of (batch_size, vsize) arrays. The words are in the order they appear in the vocabulary file.
 
 
       # For pointer-generator model, calc final distribution from copy distribution and vocabulary distribution
+      # 如果是生成模式，那么就利用词表的概率分布，注意力机制分布，重新计算最终的生成概率分布
       if FLAGS.pointer_gen:
         final_dists = self._calc_final_dist(vocab_dists, self.attn_dists)
       else: # final distribution is just vocabulary distribution
         final_dists = vocab_dists
 
 
-
+      # 如果是train和eval
       if hps.mode in ['train', 'eval']:
-        # Calculate the loss
+        # 计算损失
         with tf.variable_scope('loss'):
           if FLAGS.pointer_gen:
             # Calculate the loss per step
@@ -271,6 +283,7 @@ class SummarizationModel(object):
           tf.summary.scalar('loss', self._loss)
 
           # Calculate coverage loss from the attention distributions
+          # 如果打开了coverage模式，需要计算coverage loss
           if hps.coverage:
             with tf.variable_scope('coverage_loss'):
               self._coverage_loss = _coverage_loss(self.attn_dists, self._dec_padding_mask)
@@ -285,7 +298,7 @@ class SummarizationModel(object):
       topk_probs, self._topk_ids = tf.nn.top_k(final_dists, hps.batch_size*2) # take the k largest probs. note batch_size=beam_size in decode mode
       self._topk_log_probs = tf.log(topk_probs)
 
-
+  # op就是最小化损失函数
   def _add_train_op(self):
     """Sets self._train_op, the op to run for training."""
     # Take gradients of the trainable variables w.r.t. the loss function to minimize
@@ -297,7 +310,7 @@ class SummarizationModel(object):
     with tf.device("/gpu:0"):
       grads, global_norm = tf.clip_by_global_norm(gradients, self._hps.max_grad_norm)
 
-    # Add a summary
+    # Add a summary 
     tf.summary.scalar('global_norm', global_norm)
 
     # Apply adagrad optimizer

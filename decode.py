@@ -56,6 +56,7 @@ class BeamSearchDecoder(object):
 
     if FLAGS.single_pass:
       # Make a descriptive decode directory name
+      # 如果开了single_pss模式，在decode目录下，根据ckpt的名称创建一个单独的目录 
       ckpt_name = "ckpt-" + ckpt_path.split('-')[-1] # this is something of the form "ckpt-123456"
       self._decode_dir = os.path.join(FLAGS.log_root, get_decode_dir_name(ckpt_name))
       if os.path.exists(self._decode_dir):
@@ -69,6 +70,7 @@ class BeamSearchDecoder(object):
 
     if FLAGS.single_pass:
       # Make the dirs to contain output written in the correct format for pyrouge
+      # 为了后续测试ROUGE值，在该目录下创建reference和decode两个目录
       self._rouge_ref_dir = os.path.join(self._decode_dir, "reference")
       if not os.path.exists(self._rouge_ref_dir): os.mkdir(self._rouge_ref_dir)
       self._rouge_dec_dir = os.path.join(self._decode_dir, "decoded")
@@ -77,6 +79,10 @@ class BeamSearchDecoder(object):
 
   def decode(self):
     """Decode examples until data is exhausted (if FLAGS.single_pass) and return, or decode indefinitely, loading latest checkpoint at regular intervals"""
+    """
+      如果FLAGS.single_pass == true 则将在整个数据集上进行decode
+      ==false 则不定期的decode
+    """
     t0 = time.time()
     counter = 0
     while True:
@@ -85,7 +91,8 @@ class BeamSearchDecoder(object):
         assert FLAGS.single_pass, "Dataset exhausted, but we are not in single_pass mode"
         tf.logging.info("Decoder has finished reading dataset for single_pass.")
         tf.logging.info("Output has been saved in %s and %s. Now starting ROUGE eval...", self._rouge_ref_dir, self._rouge_dec_dir)
-        results_dict = rouge_eval(self._rouge_ref_dir, self._rouge_dec_dir)
+        # 如果是single_pass模式，那么读完全部数据集后，计算最终的ROUGE值即可
+        results_dict = rouge_eval(self._rouge_ref_dir, self._rouge_dec_dir)  #一个ref_dir，一个dec_dir
         rouge_log(results_dict, self._decode_dir)
         return
 

@@ -32,21 +32,18 @@ from tensorflow.python import debug as tf_debug
 
 FLAGS = tf.app.flags.FLAGS
 
-# Where to find data
 # 读取数据目录
 tf.app.flags.DEFINE_string('data_path', '', 'Path expression to tf.Example datafiles. Can include wildcards to access multiple datafiles.')
 tf.app.flags.DEFINE_string('vocab_path', '', 'Path expression to text vocabulary file.')
 
-# Important settings
 # 选定某一种模式：训练/评估/解码
 # python run_summarization.py --mode=train --data_path=/path/to/chunked/train_* --vocab_path=/path/to/vocab --log_root=/path/to/a/log/directory --exp_name=myexperiment
 # python run_summarization.py --mode=eval --data_path=/path/to/chunked/val_* --vocab_path=/path/to/vocab --log_root=/path/to/a/log/directory --exp_name=myexperiment
-# python run_summarization.py --mode=decode --data_path=/path/to/chunked/val_* --vocab_path=/path/to/vocab --log_root=/path/to/a/log/directory --exp_name=myexperiment
+# python run_summarization.py --mode=decode --data_path=/path/to/chunked/test_* --vocab_path=/path/to/vocab --log_root=/path/to/a/log/directory --exp_name=myexperiment
 tf.app.flags.DEFINE_string('mode', 'train', 'must be one of train/eval/decode')
 # 仅针对deocde解码模式，如果是True 则会根据当前的检查点建立模型，生成数据集对应的摘要，并计算ROUGE分数
 tf.app.flags.DEFINE_boolean('single_pass', False, 'For decode mode only. If True, run eval on the full dataset using a fixed checkpoint, i.e. take the current checkpoint, and use it to produce one summary for each example in the dataset, write the summaries to file and then get ROUGE scores for the whole dataset. If False (default), run concurrent decoding, i.e. repeatedly load latest checkpoint, use it to produce summaries for randomly-chosen examples and log the results to screen, indefinitely.')
 
-# Where to save output
 # 输出文件的位置，包括根目录以及实验目录
 tf.app.flags.DEFINE_string('log_root', '', 'Root directory for all logging.')
 tf.app.flags.DEFINE_string('exp_name', '', 'Name for experiment. Logs will be saved in a directory with this name, under log_root.')
@@ -56,10 +53,10 @@ tf.app.flags.DEFINE_string('exp_name', '', 'Name for experiment. Logs will be sa
 tf.app.flags.DEFINE_integer('hidden_dim', 256, 'dimension of RNN hidden states')
 tf.app.flags.DEFINE_integer('emb_dim', 128, 'dimension of word embeddings')
 tf.app.flags.DEFINE_integer('batch_size', 16, 'minibatch size')
-tf.app.flags.DEFINE_integer('max_enc_steps', 400, 'max timesteps of encoder (max source text tokens)')
-tf.app.flags.DEFINE_integer('max_dec_steps', 100, 'max timesteps of decoder (max summary tokens)')
+tf.app.flags.DEFINE_integer('max_enc_steps', 200, 'max timesteps of encoder (max source text tokens)')
+tf.app.flags.DEFINE_integer('max_dec_steps', 30, 'max timesteps of decoder (max summary tokens)')
 tf.app.flags.DEFINE_integer('beam_size', 4, 'beam size for beam search decoding.')
-tf.app.flags.DEFINE_integer('min_dec_steps', 35, 'Minimum sequence length of generated summary. Applies only for beam search decoding mode')
+tf.app.flags.DEFINE_integer('min_dec_steps', 8, 'Minimum sequence length of generated summary. Applies only for beam search decoding mode')
 tf.app.flags.DEFINE_integer('vocab_size', 50000, 'Size of vocabulary. These will be read from the vocabulary file in order. If the vocabulary file contains fewer words than this number, or if this number is set to 0, will take all words in the vocabulary file.')
 tf.app.flags.DEFINE_float('lr', 0.15, 'learning rate')
 tf.app.flags.DEFINE_float('adagrad_init_acc', 0.1, 'initial accumulator value for Adagrad')
@@ -67,7 +64,6 @@ tf.app.flags.DEFINE_float('rand_unif_init_mag', 0.02, 'magnitude for lstm cells 
 tf.app.flags.DEFINE_float('trunc_norm_init_std', 1e-4, 'std of trunc norm init, used for initializing everything else')
 tf.app.flags.DEFINE_float('max_grad_norm', 2.0, 'for gradient clipping')
 
-# Pointer-generator or baseline model
 # 是否打开pointer开关
 tf.app.flags.DEFINE_boolean('pointer_gen', True, 'If True, use pointer-generator model. If False, use baseline model.')
 
@@ -289,15 +285,16 @@ def run_eval(model, batcher, vocab):
     if train_step % 100 == 0:
       summary_writer.flush()
 
-
+# 主入口
 def main(unused_argv):
   if len(unused_argv) != 1: # prints a message if you've entered flags incorrectly
     raise Exception("Problem with flags: %s" % unused_argv)
 
-  tf.logging.set_verbosity(tf.logging.INFO) # choose what level of logging you want
+  # 设置日志level为info
+  tf.logging.set_verbosity(tf.logging.INFO) 
   tf.logging.info('Starting seq2seq_attention in %s mode...', (FLAGS.mode))
 
-  # Change log_root to FLAGS.log_root/FLAGS.exp_name and create the dir if necessary
+  # 设置log_root目录为log_root/exp_name，若是训练模式，没有该目录则进行创建
   FLAGS.log_root = os.path.join(FLAGS.log_root, FLAGS.exp_name)
   if not os.path.exists(FLAGS.log_root):
     if FLAGS.mode=="train":
@@ -305,15 +302,16 @@ def main(unused_argv):
     else:
       raise Exception("Logdir %s doesn't exist. Run in train mode to create it." % (FLAGS.log_root))
 
+  # 新建一个vocabulary对象
   vocab = Vocab(FLAGS.vocab_path, FLAGS.vocab_size) # create a vocabulary
 
-  # If in decode mode, set batch_size = beam_size
-  # Reason: in decode mode, we decode one example at a time.
+  # 若是decode模式，设置batch_size = beam_size
+  # 原因是在decode模式中，我们在每个时间步上decode一个example
   # On each step, we have beam_size-many hypotheses in the beam, so we need to make a batch of these hypotheses.
   if FLAGS.mode == 'decode':
     FLAGS.batch_size = FLAGS.beam_size
 
-  # If single_pass=True, check we're in decode mode
+  # 在decode模式中不允许使用single_pass
   if FLAGS.single_pass and FLAGS.mode!='decode':
     raise Exception("The single_pass flag should only be True in decode mode")
 

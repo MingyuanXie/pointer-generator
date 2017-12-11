@@ -40,18 +40,20 @@ class Example(object):
     """
     self.hps = hps
 
-    # Get ids of special tokens
+    # 获取特殊字符的id
     start_decoding = vocab.word2id(data.START_DECODING)
     stop_decoding = vocab.word2id(data.STOP_DECODING)
 
-    # Process the article
+    # 处理文本内容
     article_words = article.split()
+    # 长度大于最大解码步长久进行截断
     if len(article_words) > hps.max_enc_steps:
       article_words = article_words[:hps.max_enc_steps]
     self.enc_len = len(article_words) # store the length after truncation but before padding
-    self.enc_input = [vocab.word2id(w) for w in article_words] # list of word ids; OOVs are represented by the id for UNK token
+    # 将词语转化成相应的id
+    self.enc_input = [vocab.word2id(w) for w in article_words] 
 
-    # Process the abstract
+    # 处理摘要部分
     abstract = ' '.join(abstract_sentences) # string
     abstract_words = abstract.split() # list of strings
     abs_ids = [vocab.word2id(w) for w in abstract_words] # list of word ids; OOVs are represented by the id for UNK token
@@ -60,7 +62,7 @@ class Example(object):
     self.dec_input, self.target = self.get_dec_inp_targ_seqs(abs_ids, hps.max_dec_steps, start_decoding, stop_decoding)
     self.dec_len = len(self.dec_input)
 
-    # If using pointer-generator mode, we need to store some extra info
+    # 如果打开了pointer模式，需要存储一些额外的信息
     if hps.pointer_gen:
       # Store a version of the enc_input where in-article OOVs are represented by their temporary OOV id; also store the in-article OOVs words themselves
       self.enc_input_extend_vocab, self.article_oovs = data.article2ids(article_words, vocab)
