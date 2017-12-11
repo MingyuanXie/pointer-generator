@@ -12,7 +12,7 @@ from tensorflow.core.example import example_pb2
 SENTENCE_START = '<s>'
 SENTENCE_END = '</s>'
 
-finished_files_dir = "finished_files"
+finished_files_dir = "finished_files_test"
 chunks_dir = os.path.join(finished_files_dir, "chunked")
 lcsts_dir = "/home/xmy/LCSTS/DATA"
 CHUNK_SIZE = 1000  # num examples per chunk, for the chunked data
@@ -52,7 +52,7 @@ def chunk_all():
 
 
 # 根据url_file文件中列出的url，读取分词后的.story文件，并将它们写入输出文件中
-def write_to_bin(in_file, out_file, abstract_offset_line, article_offset_line, offset_line, makevocab=False):
+def write_to_bin(in_file, out_file, label_offset_line, abstract_offset_line, article_offset_line, offset_line, makevocab=False, scoreFilter=False, highScore = 0):
 
     if makevocab:
         vocab_counter = collections.Counter()
@@ -62,31 +62,36 @@ def write_to_bin(in_file, out_file, abstract_offset_line, article_offset_line, o
         with open(in_file, "r",encoding= 'utf-8') as f:
             for line in f:
                 i = i + 1;
-                if i % offset_line == abstract_offset_line:
-                    seg_list = jieba.cut(line.strip());
-                    abstract = SENTENCE_START + " " + " ".join(seg_list) + " "+SENTENCE_END
-                if i % offset_line == article_offset_line:
-                    seg_list = jieba.cut(line.strip());
-                    article = " ".join(seg_list)
+                label = 0
+                if i % offset_line == label_offset_line and scoreFilter:
+                    label = int(line.strip()[13:14])
 
-                    if makevocab:
-                        art_tokens = article.split()
-                        abs_tokens = abstract.split()
-                        abs_tokens = [t for t in abs_tokens if
-                                      t not in [SENTENCE_START, SENTENCE_END]]  # remove these tags from vocab
-                        tokens = art_tokens + abs_tokens
-                        tokens = [t.strip() for t in tokens]  # strip
-                        tokens = [t for t in tokens if t != ""]  # remove empty
-                        vocab_counter.update(tokens)
+                if not scoreFilter or label >= highScore:
+                    if i % offset_line == abstract_offset_line:
+                        seg_list = jieba.cut(line.strip());
+                        abstract = SENTENCE_START + " " + " ".join(seg_list) + " " + SENTENCE_END
+                    if i % offset_line == article_offset_line:
+                        seg_list = jieba.cut(line.strip());
+                        article = " ".join(seg_list)
 
-                    # Write to tf.Example
-                    tf_example = example_pb2.Example()
-                    tf_example.features.feature['article'].bytes_list.value.extend([article.encode()])
-                    tf_example.features.feature['abstract'].bytes_list.value.extend([abstract.encode()])
-                    tf_example_str = tf_example.SerializeToString()
-                    str_len = len(tf_example_str)
-                    writer.write(struct.pack('q', str_len))
-                    writer.write(struct.pack('%ds' % str_len, tf_example_str))
+                        if makevocab:
+                            art_tokens = article.split()
+                            abs_tokens = abstract.split()
+                            abs_tokens = [t for t in abs_tokens if
+                                          t not in [SENTENCE_START, SENTENCE_END]]  # remove these tags from vocab
+                            tokens = art_tokens + abs_tokens
+                            tokens = [t.strip() for t in tokens]  # strip
+                            tokens = [t for t in tokens if t != ""]  # remove empty
+                            vocab_counter.update(tokens)
+
+                        # Write to tf.Example
+                        tf_example = example_pb2.Example()
+                        tf_example.features.feature['article'].bytes_list.value.extend([article.encode()])
+                        tf_example.features.feature['abstract'].bytes_list.value.extend([abstract.encode()])
+                        tf_example_str = tf_example.SerializeToString()
+                        str_len = len(tf_example_str)
+                        writer.write(struct.pack('q', str_len))
+                        writer.write(struct.pack('%ds' % str_len, tf_example_str))
 
     print("Finished writing file %s\n" % out_file)
     # write vocab to file
@@ -99,9 +104,11 @@ def write_to_bin(in_file, out_file, abstract_offset_line, article_offset_line, o
 
 
 if __name__ == '__main__':
-    write_to_bin(os.path.join(lcsts_dir, "PART_I.txt"), os.path.join(finished_files_dir, "train.bin"), 3, 6, 8, makevocab=True)
-    write_to_bin(os.path.join(lcsts_dir, "PART_II.txt"), os.path.join(finished_files_dir, "val.bin"), 4, 7, 9, makevocab=False)
-    write_to_bin(os.path.join(lcsts_dir, "PART_III.txt"), os.path.join(finished_files_dir, "test.bin"), 4, 7, 9, makevocab=False)
+    # write_to_bin(os.path.join(lcsts_dir, "PART_I.txt"), os.path.join(finished_files_dir, "train.bin"), 0, 3, 6, 8, scoreFilter=False, makevocab=True)
+    # write_to_bin(os.path.join(lcsts_dir, "PART_II.txt"), os.path.join(finished_files_dir, "val.bin"), 2, 4, 7, 9, scoreFilter=False, makevocab=False)
+    # write_to_bin(os.path.join(lcsts_dir, "PART_III.txt"), os.path.join(finished_files_dir, "test.bin"), 2, 4, 7, 9, scoreFilter=False, makevocab=False)
+
+    write_to_bin(os.path.join(lcsts_dir, "PART_III.txt"), os.path.join(finished_files_dir, "val.bin"), 2, 4, 7, 9, scoreFilter=True, makevocab=False, highScore=3)
 
     # 这里吧test.bin train.bin val.bin三个进行拆分成子bin，每个包含1000个example
     chunk_all()
