@@ -108,7 +108,7 @@ if __name__ == '__main__':
     # write_to_bin(os.path.join(lcsts_dir, "PART_II.txt"), os.path.join(finished_files_dir, "val.bin"), 2, 4, 7, 9, scoreFilter=False, makevocab=False)
     # write_to_bin(os.path.join(lcsts_dir, "PART_III.txt"), os.path.join(finished_files_dir, "test.bin"), 2, 4, 7, 9, scoreFilter=False, makevocab=False)
 
-    write_to_bin(os.path.join(lcsts_dir, "PART_III.txt"), os.path.join(finished_files_dir, "val.bin"), 2, 4, 7, 9, scoreFilter=True, makevocab=False, highScore=3)
+    write_to_bin(os.path.join(lcsts_dir, "PART_III.txt"), os.path.join(finished_files_dir, "test.bin"), 2, 4, 7, 9, scoreFilter=True, makevocab=False, highScore=3)
 
     # 这里吧test.bin train.bin val.bin三个进行拆分成子bin，每个包含1000个example
     chunk_all()
