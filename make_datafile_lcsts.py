@@ -57,9 +57,9 @@ def write_to_bin(in_file, out_file, label_offset_line, abstract_offset_line, art
     if makevocab:
         vocab_counter = collections.Counter()
 
-    with open(out_file, 'wb',encoding= 'utf-8') as writer:
+    with open(out_file, 'wb') as writer:
         i = 0;
-        with open(in_file, "r",encoding= 'utf-8') as f:
+        with open(in_file, "r") as f:
             for line in f:
                 i = i + 1;
                 label = 0
@@ -97,7 +97,7 @@ def write_to_bin(in_file, out_file, label_offset_line, abstract_offset_line, art
     # write vocab to file
     if makevocab:
         print("Writing vocab file...")
-        with open(os.path.join(finished_files_dir, "vocab"), 'w',encoding='utf-8') as writer:
+        with open(os.path.join(finished_files_dir, "vocab"), 'w') as writer:
             for word, count in vocab_counter.most_common(VOCAB_SIZE):
                 writer.write(word + ' ' + str(count) + '\n')
         print("Finished writing vocab file")
